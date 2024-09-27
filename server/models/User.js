@@ -31,6 +31,14 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Profle",
         required: true,
+    },
+    token: {
+        type: String,
+    },
+    verified: {
+        type: Boolean,
+        default: false,
+        required: true,
     }
 });
 

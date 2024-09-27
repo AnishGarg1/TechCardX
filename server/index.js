@@ -2,11 +2,22 @@ const expres = require("express");
 const app = expres();
 const dotenv = require("dotenv");
 const database = require("./config/database");
+const cors = require("cors");
 
-// Configuration
+// configuration
 dotenv.config();
+
+// middleware
+app.use(expres.json());
+app.use(
+    cors({
+        origin: "*",
+        credentials: true,
+    })
+);
+
 // Connect to database
-database();
+database.connect();
 
 const PORT = process.env.PORT || 4000;
 
