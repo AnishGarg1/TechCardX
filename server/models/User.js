@@ -22,14 +22,14 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    passWord: {
+    password: {
         type: String,
         required: true,
         trim: true,
     },
     profileId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Profle",
+        ref: "Profile",
         required: true,
     },
     token: {
@@ -41,5 +41,8 @@ const userSchema = new mongoose.Schema({
         required: true,
     }
 });
+
+// Creating index for username to implement faster search for a document in db with username
+userSchema.index({ username: 1 },  { unique: true });
 
 module.exports = mongoose.model("User", userSchema);

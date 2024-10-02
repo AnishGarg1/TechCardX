@@ -3,6 +3,7 @@ const app = expres();
 const dotenv = require("dotenv");
 const database = require("./config/database");
 const cors = require("cors");
+const userRoutes = require("./routes/User");
 
 // configuration
 dotenv.config();
@@ -18,6 +19,9 @@ app.use(
 
 // Connect to database
 database.connect();
+
+// Routing
+app.use("/api/v1/auth", userRoutes);
 
 const PORT = process.env.PORT || 4000;
 

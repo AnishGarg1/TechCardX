@@ -7,7 +7,7 @@ const Token = require("../models/Token");
 // Signup
 exports.signup = async (req, res) => {
     try {
-        const {username, firstName, lastName, email, password, confirmPassword, token} = req.body;
+        const {username, firstName, lastName, email, password, confirmPassword} = req.body;
 
         if(!username || !firstName || !lastName || !email || !password || !confirmPassword) {
             return res.status(404).json({
@@ -16,7 +16,9 @@ exports.signup = async (req, res) => {
             });
         }
 
-        const existingUser = await User.findOne({email});
+        const existingUser = await User.findOne({
+            $or: [{ email }, { username }]
+        });
 
         if(existingUser){
             return res.status(400).json({
@@ -60,6 +62,7 @@ exports.signup = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({
+            error,
             success: false,
             message: "Internal server error, try again",
         });
@@ -67,7 +70,7 @@ exports.signup = async (req, res) => {
 }
 
 // Login
-const login = async (req, res) => {
+exports.login = async (req, res) => {
     try {
         const {username, email, password} = req.body;
 
@@ -77,22 +80,19 @@ const login = async (req, res) => {
                 message: "Please fill all the details",
             });
         }
-
-        let user;
-        if(username){
-            user = await User.findOne({username}).populate("profileId");
-        } else{
-            user = await User.findOne({email}).populate("profileId"); 
-        }
-
+        
+        const user = await User.findOne(username ? { username } : { email })
+                     .populate("profileId")
+                     .exec();
+        
         if(!user){
             return res.status(404).json({
                 success: false,
                 message: "User is not registered, Please SignUp First",
             });
         }
-
-        const verify = await bcrypt.compare(password, user.passWord);
+        
+        const verify = await bcrypt.compare(password, user.password);
         if(!verify){
             return res.status(401).json({
                 success: false,
@@ -100,39 +100,40 @@ const login = async (req, res) => {
             });
         }
 
+        
         if(!user.verified){
             return res.status(401).json({
                 success: false,
                 message: "Please first verify your email",
             });
         }
-
-        const token = jwt.token(
+        
+        const token = jwt.sign(
             {userId: user._id, username: user.username, email: user.email},
             process.env.JWT_SECRET,
             {
                 expiresIn: '24h',
             }
         )
-
+        
         user.token = token;
         await user.save();
         
-        user.passWord = undefined;
-
+        user.password = undefined;
+        
         const options = {
             expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
             httpOnly: true,
         };
-        req.cookie("token", token, options).status(200).json({
+        res.cookie("token", token, options).status(200).json({
             success: true,
             token,
             user,
             message: "Login successfully",
         });
-        
     } catch (error) {
         return res.status(500).json({
+            error,
             success: false,
             message: "Internal server error, try again",
         });
@@ -140,23 +141,31 @@ const login = async (req, res) => {
 }
 
 // SendToken
-const sendToken = async (req, res) => {
+exports.sendToken = async (req, res) => {
     try {
-        const {username} = req.body;
-
-        const existingUser = await User.findOne({username});
-
-        if(existingUser){
-            return res.status(401).json({
+        const {username, email} = req.body;
+        
+        if(!username && !email){
+            return res.status(404).json({
                 success: false,
-                message: "User is already registered",
+                message: "Please fill all the details",
             });
         }
 
-        const token = jwt.sign({username: username}, process.env.TOKEN_SECRET, {expiresIn: '10m'});
+        const user = await User.findOne(username ? {username} : {email});
+
+        if(!user){
+            return res.status(401).json({
+                success: false,
+                message: "User is not registered",
+            });
+        }
+
+        const token = jwt.sign({username: user.username, email: user.email}, process.env.TOKEN_SECRET, {expiresIn: '10m'});
 
         const tokenDocument = await Token.create({
-            username,
+            username: user.username,
+            email: user.email,
             token,
         });
 
@@ -174,22 +183,24 @@ const sendToken = async (req, res) => {
 }
 
 // VerifyToken
-const verifyToken = async (req, res) => {
+exports.verifyToken = async (req, res) => {
     try {
         const {token} = req.params;
 
-        let username;
+        let username, email;
         try {
             const decode = await jwt.verify(token, process.env.TOKEN_SECRET);
             username = decode.username;
+            email = decode.email;
         } catch (error) {
             return res.status(401).json({
+                error,
                 success: false,
                 message: "Token is invalid",
             });
         }
 
-        const user = await User.findOne({username});
+        const user = await User.findOne({username, email});
         if(!user){
             return res.status(401).json({
                 success: false,
@@ -199,6 +210,7 @@ const verifyToken = async (req, res) => {
         
         const tokenDoc = await Token.findOne({
             username,
+            email,
             token
         });
 
@@ -210,11 +222,37 @@ const verifyToken = async (req, res) => {
         }
 
         await User.findByIdAndUpdate(user._id, {verified: true});
-        await Token.deleteOne({username, token});
+        await Token.deleteOne({username, email, token});
 
         return res.status(200).json({
-            success: false,
+            success: true,
             message: "Email verified successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error, try again",
+        });
+    }
+}
+
+// Check Unique Username
+exports.checkUsername = async (req, res) => {
+    try {
+        const {username} = req.params;
+
+        const user = await User.findOne({ username }).select('_id');
+
+        if(user){
+            return res.status(401).json({
+                success: false,
+                message: "User exists, username not available"
+            });
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: "Username available",
         });
     } catch (error) {
         return res.status(500).json({

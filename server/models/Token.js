@@ -6,6 +6,10 @@ const TokenSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    email: {
+        type: String,
+        required: true,
+    },
     token: {
         type: String,
         required: true,
@@ -40,7 +44,7 @@ const sendVerificationEmail = async (email, token) => {
 
 // Function to send token before saving document to db
 TokenSchema.pre("save", async (next) => {
-    console.log("New document saved to database");
+    // console.log("New document saved to database");
 
     // Only send an email when a new document is created
     if(this.isNew){
