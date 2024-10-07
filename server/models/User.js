@@ -39,7 +39,11 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
         required: true,
-    }
+    },
+    codingProfiles: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CodingProfile",
+    },
 });
 
 // Creating index for username to implement faster search for a document in db with username
