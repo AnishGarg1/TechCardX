@@ -15,7 +15,7 @@ exports.saveUsernames = async (req, res) => {
         if(!email || (!leetcodeUser && !gfgUser && !ibUser && !csUser && !codechefUser)){
             return res.status(404).json({
                 success: false,
-                message: "Please fill alteast one username",
+                message: "Please fill all the details",
             });
         }
 
